@@ -391,10 +391,9 @@ h1::before {
   width: 100%;
   height: 100%;
   background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.9)), 
-              url('https://images.unsplash.com/photo-1626248801379-51a0748a5f96?q=80&w=1470&auto=format&fit=crop') center/cover no-repeat;
+              url('resources/Screen2d.jpg') center/cover no-repeat;
 }
 
-/* Rest of your existing CSS remains the same... */
 .menu-overlay {
   position: absolute;
   width: 100%;

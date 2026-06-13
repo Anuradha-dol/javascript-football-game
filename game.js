@@ -4,148 +4,6 @@ const ctx = canvas.getContext("2d");
 const WIDTH = canvas.width;
 const HEIGHT = canvas.height;
 
-// Launch Page Music Controls
-document.addEventListener('DOMContentLoaded', function() {
-  const audio = document.getElementById('backgroundMusic');
-  const enterBtn = document.getElementById('enterBtn');
-  const musicBtn = document.getElementById('musicBtn');
-  const launchPage = document.getElementById('launchPage');
-  const homeMenu = document.getElementById('homeMenu');
-
-  // Set initial volume
-  if (audio) {
-    audio.volume = 0.5; // 50% volume
-  }
-
-  // Start music
-  function startMedia() {
-    if (audio) {
-      audio.play().catch(function(error) {
-        console.log("Audio autoplay error:", error);
-        // Show alert for user interaction
-        if (musicBtn) {
-          musicBtn.innerHTML = '<i class="fas fa-volume-mute"></i> CLICK TO ENABLE MUSIC';
-          musicBtn.style.background = '#ff416c';
-        }
-      });
-    }
-  }
-
-  // Start media on page load
-  startMedia();
-
-  // Enter button - go to main menu
-  if (enterBtn) {
-    enterBtn.addEventListener('click', function() {
-      selectSound.play();
-      
-      // Pause audio when leaving launch page
-      if (audio) {
-        audio.pause();
-      }
-      
-      // Hide launch page with animation
-      launchPage.style.opacity = '0';
-      launchPage.style.transition = 'opacity 0.5s ease';
-      
-      setTimeout(() => {
-        launchPage.style.display = 'none';
-        
-        // Show home menu
-        if (homeMenu) {
-          homeMenu.style.display = 'flex';
-        }
-      }, 500);
-    });
-  }
-
-  enterBtn.addEventListener('click', function() {
-    launchMusic.pause();
-    launchMusic.currentTime = 0;
-    menuMusic.play();
-    launchPage.style.display = 'none';
-    homeMenu.style.display = 'flex';
-});
-  
-
-  // Volume control (optional keyboard shortcuts)
-  document.addEventListener('keydown', function(e) {
-    if (!audio) return;
-    
-    switch(e.key.toLowerCase()) {
-      case 'm':
-        // Mute/unmute with M key
-        if (audio.paused) {
-          audio.play();
-          if (musicBtn) {
-            musicBtn.innerHTML = '<i class="fas fa-volume-up"></i> MUSIC: ON';
-            musicBtn.style.background = 'rgba(0, 180, 219, 0.8)';
-          }
-        } else {
-          audio.pause();
-          if (musicBtn) {
-            musicBtn.innerHTML = '<i class="fas fa-volume-mute"></i> MUSIC: OFF';
-            musicBtn.style.background = '#666';
-          }
-        }
-        break;
-        
-      case '+':
-      case '=':
-        // Increase volume
-        if (audio.volume < 1) {
-          audio.volume = Math.min(1, audio.volume + 0.1);
-        }
-        break;
-        
-      case '-':
-        // Decrease volume
-        if (audio.volume > 0) {
-          audio.volume = Math.max(0, audio.volume - 0.1);
-        }
-        break;
-        
-      case 'enter':
-        // Start game with Enter key
-        if (enterBtn && launchPage.style.display !== 'none') {
-          enterBtn.click();
-        }
-        break;
-    }
-  });
-
-  // Handle tab visibility changes
-  document.addEventListener('visibilitychange', function() {
-    if (document.hidden) {
-      // Tab is hidden, pause audio
-      if (audio && !audio.paused) {
-        audio.pause();
-      }
-    } else {
-      // Tab is visible, resume audio if it was playing
-      if (audio && !audio.paused) {
-        audio.play().catch(console.error);
-      }
-    }
-  });
-});
-
-// Ensure audio plays after user interaction (for browser autoplay policies)
-function enableAudio() {
-  const audio = document.getElementById('backgroundMusic');
-  if (audio) {
-    audio.play().then(() => {
-      console.log("Audio started successfully");
-    }).catch(error => {
-      console.log("Audio autoplay blocked:", error);
-    });
-  }
-}
-
-// Call enableAudio on any user interaction
-document.addEventListener('click', enableAudio);
-document.addEventListener('keydown', enableAudio);
-
 // ================= IMAGES =================
 // Player images (2 options)
 const playerImgs = [
@@ -180,9 +38,31 @@ const crowdCheerSound = new Audio("resources/west-ham-bubbles-77370.mp3");
 crowdCheerSound.loop = true;
 crowdCheerSound.volume = 0.4;
 
-let bgMusic = new Audio("resources/launch_music.mp3");
+const audioTracks = {
+    launch: "resources/launch_music.mp3",
+    menu: "resources/menu_music.mp3",
+    match: "resources/football-412586.mp3"
+};
+
+let bgMusic = new Audio(audioTracks.launch);
 bgMusic.loop = true;
 bgMusic.volume = 0.5;
+
+function playAudio(audio) {
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {});
+    }
+}
+
+function setBackgroundTrack(trackPath) {
+    if (!bgMusic.src.endsWith(trackPath)) {
+        bgMusic.pause();
+        bgMusic.src = trackPath;
+        bgMusic.loop = true;
+    }
+    playAudio(bgMusic);
+}
 
 // ================= GAME STATE =================
 let matchTime = 180; // 3 minutes
@@ -190,7 +70,7 @@ let lastMinuteCheck = 180;
 let specialShots = 3;
 let scorePlayer = 0;
 let scoreOpponent = 0;
-let highScore = localStorage.getItem("highScore") || 0;
+let highScore = Number(localStorage.getItem("highScore") || 0);
 let difficulty = "medium";
 
 // ================= PLAYER/OPPONENT =================
@@ -228,7 +108,18 @@ crowdCheerSound.volume = sfxVolume / 100;
 
 // ================= INPUT HANDLING =================
 document.addEventListener("keydown", e => {
+    const launchScreen = document.getElementById("launchPage");
+    const gameScreen = document.getElementById("gameContainer");
+
+    if (e.code === "Enter" && launchScreen && launchScreen.style.display !== "none") {
+        e.preventDefault();
+        document.getElementById("enterBtn").click();
+        return;
+    }
+
     keys[e.code] = true;
+
+    if (gameScreen && gameScreen.style.display === "none") return;
 
     if (e.code === "Enter" && !paused) {
         if (!started) started = true;
@@ -240,7 +131,10 @@ document.addEventListener("keydown", e => {
 
     if (!kickoff && !paused) {
         if (e.code === "KeyD") shootBall(player, 8, -6);
-        if (e.code === "KeyQ" && specialShots > 0) specialShoot(player);
+        if ((e.code === "Space" || e.code === "KeyQ") && specialShots > 0) {
+            e.preventDefault();
+            specialShoot(player);
+        }
     }
 });
 
@@ -264,7 +158,7 @@ const highScoreDisplay = document.getElementById('highScoreDisplay');
 
 // ================= INITIALIZE =================
 function init() {
-    bgMusic.play();
+    playAudio(bgMusic);
     gameLoop();
     
     // Load saved volume settings to UI
@@ -279,8 +173,7 @@ document.getElementById('enterBtn').addEventListener('click', () => {
     setTimeout(() => {
         launchPage.style.display = 'none';
         homeMenu.style.display = 'flex';
-        bgMusic.src = "resources/menu_music.mp3";
-        bgMusic.play();
+        setBackgroundTrack(audioTracks.menu);
     }, 500);
 });
 
@@ -288,11 +181,9 @@ document.getElementById('startGameBtn').addEventListener('click', () => {
     selectSound.play();
     homeMenu.style.display = 'none';
     gameContainer.style.display = 'block';
-    bgMusic.src = "resources/game_music.mp3";
-    bgMusic.play();
-    started = true;
-    paused = false;
-    crowdCheerSound.play();
+    setBackgroundTrack(audioTracks.match);
+    restartMatch(true);
+    playAudio(crowdCheerSound);
 });
 
 // ================= CHARACTER SELECTION =================
@@ -389,7 +280,7 @@ document.getElementById('saveSettingsBtn').addEventListener('click', () => {
         bgMusic.src = "resources/" + selectedMusic;
         bgMusic.loop = true;
         if (wasPlaying) {
-            bgMusic.play();
+            playAudio(bgMusic);
         }
     }
     
@@ -430,8 +321,8 @@ function togglePause() {
         bgMusic.pause();
         pausePanel.style.display = 'flex';
     } else {
-        if (!kickoff) crowdCheerSound.play();
-        bgMusic.play();
+        if (!kickoff) playAudio(crowdCheerSound);
+        playAudio(bgMusic);
         pausePanel.style.display = 'none';
     }
 }
@@ -452,9 +343,8 @@ document.getElementById('pauseMainMenuBtn').addEventListener('click', () => {
     pausePanel.style.display = 'none';
     gameContainer.style.display = 'none';
     homeMenu.style.display = 'flex';
-    bgMusic.src = "resources/menu_music.mp3";
-    bgMusic.play();
-    restartMatch();
+    setBackgroundTrack(audioTracks.menu);
+    restartMatch(false);
 });
 
 // ================= GAME FUNCTIONS =================
@@ -500,6 +390,7 @@ function gameLoop() {
     
     if (matchTime <= 0) {
         endMatch();
+        requestAnimationFrame(gameLoop);
         return;
     }
 
@@ -784,6 +675,11 @@ function saveScore() {
     const scores = JSON.parse(localStorage.getItem("scores") || "[]");
     scores.push(scorePlayer);
     localStorage.setItem("scores", JSON.stringify(scores));
+
+    if (scorePlayer > highScore) {
+        highScore = scorePlayer;
+        localStorage.setItem("highScore", highScore);
+    }
 }
 
 // ================= END MATCH =================
@@ -800,7 +696,7 @@ function endMatch() {
 }
 
 // ================= RESTART =================
-function restartMatch() {
+function restartMatch(startImmediately = true) {
     scorePlayer = 0;
     scoreOpponent = 0;
     matchTime = 180;
@@ -816,10 +712,16 @@ function restartMatch() {
     ball.dy = 0;
     matchOverPanel.style.display = "none";
     pausePanel.style.display = "none";
-    started = true;
+    started = startImmediately;
     paused = false;
-    if (!kickoff) crowdCheerSound.play();
-    bgMusic.play();
+    updateHUD();
+
+    if (startImmediately) {
+        playAudio(bgMusic);
+    } else {
+        crowdCheerSound.pause();
+        crowdCheerSound.currentTime = 0;
+    }
 }
 
 // ================= BUTTON EVENT LISTENERS =================
@@ -832,9 +734,8 @@ document.getElementById("mainMenuBtn").addEventListener("click", () => {
     matchOverPanel.style.display = "none";
     gameContainer.style.display = "none";
     homeMenu.style.display = "flex";
-    bgMusic.src = "resources/menu_music.mp3";
-    bgMusic.play();
-    restartMatch();
+    setBackgroundTrack(audioTracks.menu);
+    restartMatch(false);
 });
 
 // ================= INITIALIZE GAME =================
